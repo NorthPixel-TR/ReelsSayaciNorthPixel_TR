@@ -8,7 +8,8 @@ yanında bir beyin gösterir. Kaydırdıkça beyin yorulur. **50 reels** dolunca
 - **Sayaç + beyin:** Reels/Shorts/TikTok açıkken ekranın köşesinde `23 / 50` yazar, yanında beyin durur.
   Beyin sağlığı %100'den başlar, her reels ile düşer, 50'de %0 olur.
 - **50'den sonra kapanır:** 50. reels'i izleyebilirsin. Bir sonrakine kaydırınca kapanır.
-  - Instagram'da sadece **Reels** kapanır: ana sayfaya döner, mesajlaşmaya devam edebilirsin.
+  - Instagram'da sadece **mesajlar** açık kalır. Ana sayfa, keşfet, Reels sekmesi ve profil seni mesajlara
+    gönderir. Arkadaşının mesajla attığı reels'i izleyebilirsin; bir sonrakine kaydırınca mesaja geri döner.
   - YouTube'da sadece **Shorts** kapanır: ana sayfaya döner, normal videolar açık kalır.
   - **TikTok** tamamen kapanır ve "Bugünlük bu kadar!" ekranı açılır.
 - **Ana ekran aracı (widget):** Ana ekrana beyin ve bugünkü sayıyı koyabilirsin. Ana ekranda boş bir yere

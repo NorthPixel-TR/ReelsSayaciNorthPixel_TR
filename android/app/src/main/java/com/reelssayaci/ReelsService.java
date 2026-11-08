@@ -12,6 +12,7 @@ import android.content.SharedPreferences;
 import android.graphics.drawable.Icon;
 import android.content.pm.ServiceInfo;
 import android.graphics.Rect;
+import android.net.Uri;
 import android.os.Build;
 import android.os.Handler;
 import android.os.Looper;
@@ -37,6 +38,17 @@ public class ReelsService extends AccessibilityService {
     private static final long SCAN_INTERVAL_MS = 1500;
     private static final long BLOCK_COOLDOWN_MS = 2000;
     private static final int BACK_ATTEMPTS = 3;
+    /**
+     * Limit dolunca Instagram'da sadece mesajlar açık. Alt menüde bu sekmelerden biri seçiliyse
+     * (ana sayfa, keşfet, reels, profil) mesajlara gönderilir.
+     */
+    private static final String[] IG_LOCKED_TABS = {"feed_tab", "search_tab", "clips_tab", "profile_tab", "creation_tab"};
+    /** Mesajlar düğmesi: ana sayfanın sağ üstünde ya da alt menüde. */
+    private static final String[] IG_INBOX_BUTTONS = {"action_bar_inbox_button", "direct_tab", "inbox_tab"};
+    private static final String IG_INBOX_LINK = "https://www.instagram.com/direct/inbox/";
+    private static final long REDIRECT_INTERVAL_MS = 2500;
+    private static final long REDIRECT_STREAK_MS = 8000;
+    private static final int REDIRECT_STREAK_LIMIT = 3;
     /** Limitteki son reels'e tanınan süre; sonra kaydırma algılanmasa bile kapatılır. */
     private static final long LAST_REEL_GRACE_MS = 30_000;
     /** Son reels sayıldıktan bu kadar sonra gelen kaydırma yeni bir harekettir. */
@@ -57,6 +69,12 @@ public class ReelsService extends AccessibilityService {
     private boolean inReels;
     private boolean checkPending;
     private boolean backingOut;
+    /** Limit dolduktan sonra mesajdan açılan reels izleniyor: sadece o reels, sonrakinde kapanır. */
+    private boolean dmReel;
+    private int dmReelViews;
+    private long lastRedirectAt;
+    private int redirectStreak;
+    private long lastLockToastAt;
     private long lastScanAt;
     private long lastBlockAt = -BLOCK_COOLDOWN_MS;
     private long lastCountAt = -LAST_REEL_GRACE_MS;
@@ -220,7 +238,102 @@ public class ReelsService extends AccessibilityService {
             leave();
             currentApp = app;
         }
+        if (app == App.INSTAGRAM && store.shouldBlock() && !watchingLastReel()) {
+            checkInstagramLocked(root);
+            return;
+        }
         setInReels(app, app.wholeApp || hasReelsView(app, root));
+    }
+
+    /** Limitteki son reels sayıldıktan sonra o reels'in sonuna kadar izlenmesine kısa süre tanınır. */
+    private boolean watchingLastReel() {
+        return inReels && !dmReel && SystemClock.uptimeMillis() - lastCountAt <= LAST_REEL_GRACE_MS;
+    }
+
+    /**
+     * Limit dolduktan sonra Instagram: mesajlar açık, mesajdan açılan tek reels izlenebilir;
+     * ana sayfa, keşfet, Reels sekmesi ve profil mesajlara yönlendirilir.
+     */
+    private void checkInstagramLocked(AccessibilityNodeInfo root) {
+        boolean tabBar = anyVisible(root, IG_LOCKED_TABS, false);
+        boolean reels = hasReelsView(App.INSTAGRAM, root);
+        if (reels && !tabBar) {
+            // Alt menü yok: reels mesajdan (ya da paylaşılan bir bağlantıdan) açılmış.
+            if (!dmReel) {
+                dmReel = true;
+                dmReelViews = 0;
+                trackers.clear();
+            }
+            inReels = true;
+            showOverlay(false);
+            return;
+        }
+        dmReel = false;
+        inReels = false;
+        trackers.clear();
+        overlay.hide();
+        if (reels || anyVisible(root, IG_LOCKED_TABS, true)) redirectToMessages(root);
+    }
+
+    private static boolean anyVisible(AccessibilityNodeInfo root, String[] ids, boolean mustBeSelected) {
+        String prefix = root.getPackageName() + ":id/";
+        for (String id : ids) {
+            List<AccessibilityNodeInfo> nodes = root.findAccessibilityNodeInfosByViewId(prefix + id);
+            if (nodes == null) continue;
+            for (AccessibilityNodeInfo n : nodes) {
+                if (n != null && n.isVisibleToUser() && (!mustBeSelected || n.isSelected())) return true;
+            }
+        }
+        return false;
+    }
+
+    private static boolean click(AccessibilityNodeInfo root, String[] ids) {
+        String prefix = root.getPackageName() + ":id/";
+        for (String id : ids) {
+            List<AccessibilityNodeInfo> nodes = root.findAccessibilityNodeInfosByViewId(prefix + id);
+            if (nodes == null) continue;
+            for (AccessibilityNodeInfo n : nodes) {
+                for (AccessibilityNodeInfo c = n; c != null; c = c.getParent()) {
+                    if (c.isVisibleToUser() && c.isClickable()) {
+                        if (c.performAction(AccessibilityNodeInfo.ACTION_CLICK)) return true;
+                        break;
+                    }
+                }
+            }
+        }
+        return false;
+    }
+
+    /** Instagram'ın mesajlar ekranını açar; olmazsa (üst üste başarısızsa) eskisi gibi ana ekrana döner. */
+    private void redirectToMessages(AccessibilityNodeInfo root) {
+        long now = SystemClock.uptimeMillis();
+        if (backingOut || now - lastRedirectAt < REDIRECT_INTERVAL_MS) return;
+        redirectStreak = now - lastRedirectAt < REDIRECT_STREAK_MS ? redirectStreak + 1 : 1;
+        lastRedirectAt = now;
+        if (redirectStreak > REDIRECT_STREAK_LIMIT) {
+            redirectStreak = 0;
+            leaveToBlockScreen(App.INSTAGRAM);
+            return;
+        }
+        if (now - lastLockToastAt > 15_000) {
+            lastLockToastAt = now;
+            Toast.makeText(this, "Limit doldu: Instagram'da sadece mesajlar açık 💬", Toast.LENGTH_LONG).show();
+        }
+        if (click(root, IG_INBOX_BUTTONS)) return;
+        // Ana sayfaya geç, sağ üstteki mesajlar düğmesine bas; o da olmazsa mesajlar bağlantısını aç.
+        boolean wentHome = click(root, new String[]{"feed_tab"});
+        handler.postDelayed(() -> {
+            AccessibilityNodeInfo r = getRootInActiveWindow();
+            if (wentHome && r != null && App.fromPackage(r.getPackageName()) == App.INSTAGRAM
+                    && click(r, IG_INBOX_BUTTONS)) return;
+            try {
+                startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(IG_INBOX_LINK))
+                        .setPackage(root.getPackageName().toString())
+                        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
+            } catch (RuntimeException e) {
+                leaveToBlockScreen(App.INSTAGRAM);
+            }
+        }, wentHome ? 700 : 0);
     }
 
     private void setInReels(App app, boolean value) {
@@ -228,7 +341,11 @@ public class ReelsService extends AccessibilityService {
         // süre tanınır; bir sonrakine kaydırınca ya da süre bitince kapanır.
         if (value && store.shouldBlock()
                 && (!inReels || SystemClock.uptimeMillis() - lastCountAt > LAST_REEL_GRACE_MS)) {
-            block(app);
+            if (app == App.INSTAGRAM) {
+                scheduleCheck(); // checkInstagramLocked karar verir
+            } else {
+                block(app);
+            }
             return;
         }
         if (value != inReels) {
@@ -250,6 +367,7 @@ public class ReelsService extends AccessibilityService {
     private void leave() {
         currentApp = null;
         inReels = false;
+        dmReel = false;
         trackers.clear();
         if (overlay != null) overlay.hide();
     }
@@ -326,6 +444,18 @@ public class ReelsService extends AccessibilityService {
         long now = SystemClock.uptimeMillis();
         boolean newReel = tracker.onScroll(now, event.getFromIndex(), event.getItemCount());
 
+        if (dmReel && app == App.INSTAGRAM && store.shouldBlock()) {
+            // Mesajdan açılan reels: o izlenir, bir sonrakine geçince mesaja geri dönülür.
+            if (newReel && (++dmReelViews > 1 || event.getFromIndex() > 0)) {
+                dmReel = false;
+                inReels = false;
+                trackers.clear();
+                overlay.hide();
+                performGlobalAction(GLOBAL_ACTION_BACK);
+                Toast.makeText(this, "Sadece arkadaşının gönderdiği reels 🙂", Toast.LENGTH_SHORT).show();
+            }
+            return;
+        }
         if (store.shouldBlock()) {
             // Uygulama yeniden açılınca akışın sırası değişebilir ve sayaç yeni reels'i kaçırabilir;
             // limit dolduktan sonra her yeni kaydırma hareketi kapatır.
@@ -370,6 +500,13 @@ public class ReelsService extends AccessibilityService {
         if (backingOut || now - lastBlockAt < BLOCK_COOLDOWN_MS) return;
         lastBlockAt = now;
 
+        if (app == App.INSTAGRAM) {
+            AccessibilityNodeInfo root = getRootInActiveWindow();
+            if (root != null && App.fromPackage(root.getPackageName()) == app) {
+                redirectToMessages(root);
+                return;
+            }
+        }
         if (!app.wholeApp) {
             // Instagram/YouTube açık kalsın (mesajlar, normal videolar); sadece Reels/Shorts'tan çık.
             Toast.makeText(this, app.title + " bugünlük kapalı 🧠 Limitin doldu."
