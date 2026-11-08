@@ -24,9 +24,9 @@ yanında bir beyin gösterir. Kaydırdıkça beyin yorulur. **50 reels** dolunca
 
 ## 📱 Telefona kurulum (Android)
 
-1. Telefonundan **[ReelsSayaci.apk](https://github.com/kadrajsosyalmedya/Reels-sayaci/releases/latest/download/ReelsSayaci.apk)** dosyasını indir.
-   (Ya da [Releases](https://github.com/kadrajsosyalmedya/Reels-sayaci/releases) sayfasındaki en son sürümü kullan.)
-   **"Güvenlik nedeniyle engellendi" mi diyor?** Bunun yerine **[ReelsSayaci-apk.zip](https://github.com/kadrajsosyalmedya/Reels-sayaci/releases/latest/download/ReelsSayaci-apk.zip)** dosyasını indir.
+1. Telefonundan **[ReelsSayaci.apk](https://github.com/NorthPixel-TR/ReelsSayaciNorthPixel_TR/releases/latest/download/ReelsSayaci.apk)** dosyasını indir.
+   (Ya da [Releases](https://github.com/NorthPixel-TR/ReelsSayaciNorthPixel_TR/releases) sayfasındaki en son sürümü kullan.)
+   **"Güvenlik nedeniyle engellendi" mi diyor?** Bunun yerine **[ReelsSayaci-apk.zip](https://github.com/NorthPixel-TR/ReelsSayaciNorthPixel_TR/releases/latest/download/ReelsSayaci-apk.zip)** dosyasını indir.
    **Dosyalar** uygulamasında zip'e dokunup çıkar, sonra içindeki `ReelsSayaci.apk`'ya dokun.
 2. İndirilen dosyaya dokun ve kur. "Bilinmeyen uygulamalar" uyarısı çıkarsa tarayıcına izin ver.
 3. **Reels Sayacı** uygulamasını aç ve **Sayacı aç** düğmesine bas.
@@ -42,7 +42,7 @@ yanında bir beyin gösterir. Kaydırdıkça beyin yorulur. **50 reels** dolunca
 
 ## 💻 Bilgisayara kurulum (Chrome, Edge, Brave, Opera)
 
-1. [Releases](https://github.com/kadrajsosyalmedya/Reels-sayaci/releases) sayfasından `ReelsSayaci-eklenti.zip` dosyasını indir ve bir klasöre çıkar.
+1. [Releases](https://github.com/NorthPixel-TR/ReelsSayaciNorthPixel_TR/releases) sayfasından `ReelsSayaci-eklenti.zip` dosyasını indir ve bir klasöre çıkar.
 2. Tarayıcıda `chrome://extensions` adresini aç (Edge'de `edge://extensions`).
 3. Sağ üstten **Geliştirici modu**'nu aç.
 4. **Paketlenmemiş öğe yükle** düğmesine bas ve çıkardığın klasörü seç.

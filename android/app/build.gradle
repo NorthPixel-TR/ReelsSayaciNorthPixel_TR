@@ -3,7 +3,9 @@ plugins {
 }
 
 // CI her derlemede sürümü bir artırır, böylece yeni APK eskisinin üstüne kurulur.
-def buildNumber = (System.getenv("GITHUB_RUN_NUMBER") ?: "1").toInteger()
+// Eski depoda 1.0.7'ye kadar çıkıldı; yeni depoda sayaç baştan başladığı için 100 eklenir,
+// yoksa telefondaki sürüm daha yeni sayılır ve güncelleme kurulmaz.
+def buildNumber = (System.getenv("GITHUB_RUN_NUMBER") ?: "1").toInteger() + 100
 
 android {
     namespace 'com.reelssayaci'
